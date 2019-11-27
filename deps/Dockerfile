@@ -90,22 +90,9 @@ RUN apt-get install -y --no-install-recommends \
     flex \
     wget
 
-# Install NTL
-WORKDIR /
-RUN curl -so - https://www.shoup.net/ntl/ntl-11.3.2.tar.gz | tar xzvf -
-WORKDIR /ntl-11.3.2/src
-RUN ./configure CXXFLAGS="-g -O2 -fPIC -march=native -pthread -std=c++11"
-RUN make
-RUN make install
-
-# Install better pairing
-# Creates dependencies in /usr/local/include/pbc and /usr/local/lib
-WORKDIR /
-RUN curl -so - https://crypto.stanford.edu/pbc/files/pbc-0.5.14.tar.gz | tar xzvf -
-WORKDIR /pbc-0.5.14/
-RUN ./configure
-RUN make
-RUN make install
+# PBC (for charm)
+COPY --from=sbellem/pbc:0.5.14-buster /usr/local/include/pbc /usr/local/include/pbc
+COPY --from=sbellem/pbc:0.5.14-buster /usr/local/lib/libpbc.* /usr/local/lib/
 
 # Install charm
 # Creates /charm/dist/Charm_Crypto...x86_64.egg, which gets copied into the venv
@@ -121,10 +108,21 @@ RUN make install
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-11-16
 ENV PATH "/root/.cargo/bin:${PATH}"
 
+
 FROM base
-COPY --from=build ${PYTHON_LIBRARY_PATH} ${PYTHON_LIBRARY_PATH}
-COPY --from=build /usr/local/include/ /usr/local/include/
-COPY --from=build ${LIBRARY_PATH} ${LIBRARY_PATH}
+
+# NTL
+COPY --from=sbellem/ntl:buster /usr/local/include/NTL /usr/local/include/NTL
+COPY --from=sbellem/ntl:buster /usr/local/lib/libntl.a /usr/local/lib/libntl.a
+
+# PBC
+COPY --from=build /usr/local/include/pbc /usr/local/include/pbc
+COPY --from=build /usr/local/lib/libpbc.* /usr/local/lib/
+
+# Rust
 COPY --from=build /root/.cargo /root/.cargo
 COPY --from=build /root/.rustup /root/.rustup
 ENV PATH "/root/.cargo/bin:${PATH}"
+
+# Python libs
+COPY --from=build ${PYTHON_LIBRARY_PATH} ${PYTHON_LIBRARY_PATH}
