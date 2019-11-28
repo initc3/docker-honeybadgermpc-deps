@@ -16,18 +16,12 @@
 # This should contain all setup required by all other targets, such as environment
 # variables, and essential apt dependencies.
 ##
-FROM python:3.8.0-slim-buster AS base
+FROM python:3.8.0-slim-buster
 
 # Allows for log messages to be immediately dumped to the 
 # stream instead of being buffered.
 ENV PYTHONUNBUFFERED 1
 
-# Path variables needed for Charm
-ENV LIBRARY_PATH /usr/local/lib
-ENV LD_LIBRARY_PATH /usr/local/lib
-ENV LIBRARY_INCLUDE_PATH /usr/local/include
-
-# NOTE: Could use /usr/local/lib/python3.8/site-packages instead
 ENV PYTHON_LIBRARY_PATH /opt/venv
 ENV PATH ${PYTHON_LIBRARY_PATH}/bin:${PATH}
 
@@ -39,20 +33,20 @@ RUN ln -sf bash /bin/sh
 # Install apt dependencies
 # Put apt dependencies here that are needed by all build paths
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    iproute2 \
-    libflint-dev \
-    libgmp-dev \
-    libffi-dev \
-    libmpc-dev \
-    libmpfr-dev \
-    libssl-dev
+        build-essential \
+        curl \
+        git \
+        iproute2 \
+        libflint-dev \
+        libgmp-dev \
+        libffi-dev \
+        libmpc-dev \
+        libmpfr-dev \
+        libssl-dev \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Setup virtualenv
-RUN pip install --upgrade pip virtualenv
-RUN python -m virtualenv ${PYTHON_LIBRARY_PATH}
+RUN python -m venv ${PYTHON_LIBRARY_PATH}
 
 # Install pip dependencies here that are absolutely required by setup.py for 
 # better cache performance. These should be changed rarely, as they cause
@@ -73,56 +67,21 @@ RUN pip install \
 # to avoid compiling the lib from the source since it adds 20 minutes to the build.
 RUN sed -i '30c #include "flint/flint.h"' /usr/include/flint/flintxx/flint_classes.h
 
-##
-# Build Target:
-# Isolated target to build heavy dependencies
-# Built dependencies must be manually copied over in later stages.
-##
-FROM base AS build
-WORKDIR /
-
-# Install apt dependencies. These dependencies should only be those which are
-# needed for building dependencies. Any other dependencies should be installed 
-# in later targets
-RUN apt-get install -y --no-install-recommends \
-    bison \
-    cmake \
-    flex \
-    wget
-
-# PBC (for charm)
-COPY --from=sbellem/pbc:0.5.14-buster /usr/local/include/pbc /usr/local/include/pbc
-COPY --from=sbellem/pbc:0.5.14-buster /usr/local/lib/libpbc.* /usr/local/lib/
-
-# Install charm
-# Creates /charm/dist/Charm_Crypto...x86_64.egg, which gets copied into the venv
-# /opt/venv/lib/python3.7/site-packages/Charm_crypto...x86_64.egg
-WORKDIR /
-RUN git clone https://github.com/JHUISI/charm.git
-WORKDIR /charm
-RUN git reset --hard be9587ccdd4d61c591fb50728ebf2a4690a2064f
-RUN ./configure.sh
-RUN make install
-
-# Downloads rust and sets it up
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-11-16
-ENV PATH "/root/.cargo/bin:${PATH}"
-
-
-FROM base
 
 # NTL
 COPY --from=sbellem/ntl:buster /usr/local/include/NTL /usr/local/include/NTL
 COPY --from=sbellem/ntl:buster /usr/local/lib/libntl.a /usr/local/lib/libntl.a
 
 # PBC
-COPY --from=build /usr/local/include/pbc /usr/local/include/pbc
-COPY --from=build /usr/local/lib/libpbc.* /usr/local/lib/
+COPY --from=sbellem/pbc:0.5.14-slim-buster /usr/local/include/pbc /usr/local/include/pbc
+COPY --from=sbellem/pbc:0.5.14-slim-buster /usr/local/lib/libpbc.* /usr/local/lib/
 
 # Rust
-COPY --from=build /root/.cargo /root/.cargo
-COPY --from=build /root/.rustup /root/.rustup
-ENV PATH "/root/.cargo/bin:${PATH}"
+ENV RUSTUP_HOME /usr/local/rustup
+ENV CARGO_HOME /usr/local/cargo
+COPY --from=sbellem/rust-frozen:2019.11.21-slim-buster $RUSTUP_HOME $RUSTUP_HOME
+COPY --from=sbellem/rust-frozen:2019.11.21-slim-buster $CARGO_HOME $CARGO_HOME
+ENV PATH "${CARGO_HOME}/bin:${PATH}"
 
-# Python libs
-COPY --from=build ${PYTHON_LIBRARY_PATH} ${PYTHON_LIBRARY_PATH}
+# Charm Python library
+COPY --from=sbellem/charm-crypto:slim-buster ${PYTHON_LIBRARY_PATH} ${PYTHON_LIBRARY_PATH}
