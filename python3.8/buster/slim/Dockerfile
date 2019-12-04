@@ -74,8 +74,8 @@ RUN set -ex \
     && ln -s libflint.so.13.5.2 libflint.so.13
 
 # NTL
-COPY --from=initc3/ntl:buster $LIBRARY_INCLUDE_PATH/NTL $LIBRARY_INCLUDE_PATH/NTL
-COPY --from=initc3/ntl:buster $LIBRARY_PATH/libntl.a $LIBRARY_PATH/libntl.a
+COPY --from=initc3/ntl:11.4.1-buster $LIBRARY_INCLUDE_PATH/NTL $LIBRARY_INCLUDE_PATH/NTL
+COPY --from=initc3/ntl:11.4.1-buster $LIBRARY_PATH/libntl.a $LIBRARY_PATH/libntl.a
 
 # Rust
 ENV RUSTUP_HOME /usr/local/rustup
