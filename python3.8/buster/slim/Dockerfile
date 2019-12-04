@@ -32,17 +32,17 @@ RUN python -m venv ${PYTHON_LIBRARY_PATH}
 # between packages can occur. For instance, if pip is upgraded before the copy
 # step, pip will not work.
 # TODO: Look into using wheels instead of virtual environments.
-COPY --from=initc3/charm-crypto:4893024-slim-buster \
+COPY --from=initc3/charm-crypto:4893024-python3.8-slim-buster \
                 $LIBRARY_INCLUDE_PATH/pbc \
                 $LIBRARY_INCLUDE_PATH/pbc
-COPY --from=initc3/charm-crypto:4893024-slim-buster \
+COPY --from=initc3/charm-crypto:4893024-python3.8-slim-buster \
                 $LIBRARY_PATH/libpbc.so.1.0.0 \
                 $LIBRARY_PATH/libpbc.so.1.0.0
 RUN set -ex \
     && cd $LIBRARY_PATH \
     && ln -s libpbc.so.1.0.0 libpbc.so \
     && ln -s libpbc.so.1.0.0 libpbc.so.1
-COPY --from=initc3/charm-crypto:4893024-slim-buster \
+COPY --from=initc3/charm-crypto:4893024-python3.8-slim-buster \
                 ${PYTHON_LIBRARY_PATH} \
                 ${PYTHON_LIBRARY_PATH}
 
